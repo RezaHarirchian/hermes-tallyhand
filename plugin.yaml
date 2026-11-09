@@ -1,0 +1,167 @@
+name: tallyhand
+label: Twitch
+kind: platform
+version: 0.1.0
+manifest_version: 2
+description: >-
+  Twitch chat as a Hermes platform that treats chat as untrusted input: roles are enforced in code before
+  every tool call, bans wait for the streamer's approval, and viewer notes are kept only with consent. The
+  streamer gets their own toolsets, the Twitch and OBS tools, and runs the stream in plain sentences. Only
+  Twitch's own endpoints and your own OBS (on this computer by default) are contacted.
+author: Reza Harirchian
+license: MIT
+homepage: https://github.com/RezaHarirchian/hermes-tallyhand
+tags: [twitch, streaming, chat, platform]
+requires_hermes: ">=0.22.7"
+requires_env:
+  - name: TWITCH_BOT_TOKEN
+    description: "User access token of the bot account (needs chat:read and chat:edit). The oauth: prefix is optional."
+    prompt: "Bot access token"
+    password: true
+    secret: true
+    url: "https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/"
+  - name: TWITCH_CHANNEL
+    description: "Channel login(s) to join, comma-separated, your own first: its broadcaster is the owner"
+    prompt: "Channel(s)"
+    password: false
+optional_env:
+  - name: TWITCH_ALLOWED_USERS
+    description: "Twitch user ids or logins allowed to ask the bot, comma-separated; logins are looked up when the bot connects. Without this or TWITCH_ALLOW_ALL_USERS nobody can ask, you included"
+    prompt: "Allowed logins or user ids (comma-separated)"
+    password: false
+  - name: TWITCH_ALLOW_ALL_USERS
+    description: "Let every viewer in the channel talk to the bot (true/false)"
+    prompt: "Allow all viewers? (true/false)"
+    password: false
+  - name: TWITCH_HOME_CHANNEL
+    description: "Channel for cron jobs delivered to plain twitch and for Hermes' messages to you, best one of TWITCH_CHANNEL's; unset, those stay out of chat"
+    prompt: "Home channel (or empty)"
+    password: false
+  - name: TWITCH_HOME_CHANNEL_NAME
+    description: "Name Hermes shows for the home channel (default Home)"
+    prompt: "Home channel display name (or empty)"
+    password: false
+  - name: TALLYHAND_TRIGGERS
+    description: "Extra trigger prefixes besides !hermes and !h, comma-separated (for example !ask,!q)"
+    prompt: "Extra triggers (or empty)"
+    password: false
+  - name: TALLYHAND_USER_COOLDOWN
+    description: "Seconds between two questions from one viewer (default 20; the streamer and moderators are exempt)"
+    prompt: "Viewer cooldown in seconds"
+    password: false
+  - name: TALLYHAND_REPLY_LANGUAGE
+    description: "Language for model replies: channel (the stream language), viewer (each question's language), or a two-letter ISO 639-1 code; wins over reply_language"
+    prompt: "Reply language (channel, viewer, or ISO code)"
+    password: false
+  - name: OBS_WEBSOCKET_URL
+    description: "OBS WebSocket address (default ws://127.0.0.1:4455); only this computer unless TALLYHAND_OBS_ALLOW_REMOTE=true"
+    prompt: "OBS WebSocket URL (or empty for ws://127.0.0.1:4455)"
+    password: false
+  - name: OBS_WEBSOCKET_PASSWORD
+    description: "Password from OBS, Tools, WebSocket Server Settings, Show Connect Info"
+    prompt: "OBS WebSocket password"
+    password: true
+    secret: true
+  - name: TALLYHAND_BRB_SCENE
+    description: "OBS scene that !brb switches to"
+    prompt: "BRB scene (or empty)"
+    password: false
+  - name: TALLYHAND_LIVE_SCENE
+    description: "OBS scene that !back switches to; without it !back returns to the scene !brb left"
+    prompt: "Live scene (or empty)"
+    password: false
+  - name: TALLYHAND_CAPTION_SOURCE
+    description: "OBS text source the caption tools write to (default tallyhand_caption)"
+    prompt: "Caption text source (or empty)"
+    password: false
+  - name: TALLYHAND_OBS_ALLOW_REMOTE
+    description: "Let OBS_WEBSOCKET_URL point at another computer (true/false); ws:// traffic to it is not encrypted"
+    prompt: "Allow OBS on another computer? (true/false)"
+    password: false
+config_schema:
+  user_cooldown:
+    type: int
+    default: 20
+    label: "Viewer cooldown (seconds)"
+    description: "Seconds between two questions from one viewer. The streamer and moderators are exempt. TALLYHAND_USER_COOLDOWN wins over this."
+  max_reply_lines:
+    type: int
+    default: 3
+    label: "Reply lines"
+    description: "Most chat messages one answer may take, from 1 to 20; a longer answer is cut and ends with an ellipsis."
+  chat_tail:
+    type: int
+    default: 0
+    label: "Chat context lines"
+    description: "Recent chat lines (not addressed to the bot) passed along with each question. Off (0) by default: when on, those lines are stored in the asker's Hermes session history, and other viewers' text reaches your own turns. A moderator's turns never carry them."
+  chat_commands:
+    type: bool
+    default: true
+    label: "Chat commands"
+    description: "Answer !uptime, !bot, !commands, !so, !clip and the OBS commands without a model call. Off, only !privacy and the viewer notes commands (!remember, !mynotes, !forgetme) stay, so viewers can always see and delete what is kept about them. Turn off when the channel already runs another command bot."
+  tools_from_other_platforms:
+    type: bool
+    default: false
+    label: "Twitch and OBS tools from other platforms"
+    description: "Let turns from other messaging platforms (Telegram, Discord and the like), other agents over A2A, hosted group chats and cron jobs use the Twitch and OBS tools. Twitch chat and the local CLI, TUI, desktop app and ACP never need this."
+  viewer_notes:
+    type: bool
+    default: true
+    label: "Viewer notes"
+    description: "Viewers can store up to 5 short notes with !remember, list them with !mynotes and delete them with !forgetme. A viewer's own notes go along with their questions, unless Hermes keeps one session per channel. Off: nothing new is stored, and notes from before stay deletable until they expire."
+  viewer_notes_days:
+    type: int
+    default: 90
+    label: "Viewer notes kept (days)"
+    description: "Days a viewer note is kept before it is deleted."
+  event_messages:
+    type: string
+    default: "off"
+    choices: ["off", "thanks"]
+    label: "Raid and sub messages"
+    description: "thanks: post one short thank-you line in chat for a raid, a sub, a resub or gift subs, without a model call. off: stay quiet."
+  min_raid_size:
+    type: int
+    default: 1
+    label: "Smallest raid to thank"
+    description: "Raids with fewer viewers than this get no thank-you line."
+  auto_clip:
+    type: bool
+    default: false
+    label: "Automatic clips"
+    description: "Clip the stream in your own channel when chat suddenly gets three times busier than usual, or when three people type clip within 15 seconds. Live streams only, at most one clip every five minutes; needs the clips:edit scope."
+  auto_clip_announce:
+    type: bool
+    default: true
+    label: "Post automatic clip links"
+    description: "Post the link to an automatic clip in chat."
+  caption_answers:
+    type: bool
+    default: false
+    label: "Show answers as OBS captions"
+    description: "Also show the bot's answers in your own channel as an OBS caption; answers often name the viewer. Needs OBS set up; a caption never holds up the chat reply."
+  reply_language:
+    type: string
+    default: "channel"
+    label: "Reply language"
+    description: "Language for every model reply in chat. channel (default) uses the stream language from Twitch; viewer answers in the language of each question; a two-letter ISO 639-1 code fixes one language. TALLYHAND_REPLY_LANGUAGE wins over this. Command and event replies stay English."
+provides_tools:
+  - twitch_stream_info
+  - twitch_create_clip
+  - twitch_announce
+  - twitch_shoutout
+  - twitch_timeout
+  - twitch_ban
+  - twitch_unban
+  - twitch_delete_message
+  - obs_status
+  - obs_list_scenes
+  - obs_switch_scene
+  - obs_list_audio_inputs
+  - obs_set_mute
+  - obs_show_caption
+  - obs_clear_caption
+  - obs_set_source_visible
+  - obs_save_replay
+provides_hooks:
+  - pre_tool_call

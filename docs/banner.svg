@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <rect x="0" y="0" width="1200" height="600" fill="#15181d"/>
+  <text x="80" y="268" font-size="84" font-weight="800" fill="#f5f7fa">Tallyhand</text>
+  <rect x="82" y="292" width="72" height="8" rx="4" fill="#f2b23e"/>
+  <text x="80" y="344" font-size="30" fill="#c8cdd6">Twitch chat for Hermes Agent</text>
+  <text x="80" y="392" font-size="20" fill="#9aa3b2">Roles, approvals and rate limits</text>
+  <text x="80" y="420" font-size="20" fill="#9aa3b2">are enforced in code.</text>
+  <rect x="620" y="80" width="500" height="440" rx="16" fill="#1e232b" stroke="#2c333f" stroke-width="2"/>
+  <text x="652" y="122" font-size="16" fill="#9aa3b2">Stream chat</text>
+  <line x1="652" y1="140" x2="1088" y2="140" stroke="#2c333f" stroke-width="2"/>
+  <circle cx="664" cy="180" r="10" fill="#8b93a3"/>
+  <text x="684" y="187" font-size="19" font-weight="700" fill="#aeb6c4">viewer_one</text>
+  <text x="652" y="216" font-size="21" fill="#eef1f6">!hermes what is a speedrun split?</text>
+  <circle cx="664" cy="262" r="10" fill="#f2b23e"/>
+  <text x="684" y="269" font-size="19" font-weight="700" fill="#f2b23e">tallyhandbot</text>
+  <text x="652" y="298" font-size="21" fill="#eef1f6">A checkpoint timer in a speedrun.</text>
+  <circle cx="664" cy="344" r="10" fill="#8b93a3"/>
+  <text x="684" y="351" font-size="19" font-weight="700" fill="#aeb6c4">viewer_one</text>
+  <text x="652" y="380" font-size="21" fill="#eef1f6">!hermes please ban @spammer</text>
+  <circle cx="664" cy="426" r="10" fill="#f2b23e"/>
+  <text x="684" y="433" font-size="19" font-weight="700" fill="#f2b23e">tallyhandbot</text>
+  <text x="652" y="462" font-size="21" fill="#eef1f6">Sorry, I cannot ban anyone here.</text>
+</svg>

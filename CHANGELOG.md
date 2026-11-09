@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0
+## 0.1.0 (2026-11-09)
 
 First release. Needs Hermes Agent 0.22.7 or later.
 

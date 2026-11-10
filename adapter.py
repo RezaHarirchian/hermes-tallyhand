@@ -62,6 +62,9 @@ SLOW_MARGIN = 0.5  # seconds added to a channel's slow-mode interval
 # and never take the last OWN_RESERVE messages of an account-wide window, which stay for Hermes' replies.
 OWN_WAIT, OWN_RESERVE = 3.0, 5
 HINT_COOLDOWN = 60.0
+# How often the refusal of questions from anyone but the owner (profile memory on) is logged; the key is the log's own.
+BARRED_LOG_PERIOD = 600.0
+BARRED_KEY = ("", "")
 DELIVERED_LINES = 200  # the bot's own recent lines kept per channel, to spot a redelivered reply
 APPROVAL_LINES = 3
 ALLOWED_ENV = "TWITCH_ALLOWED_USERS"
@@ -324,6 +327,9 @@ class TwitchAdapter(BasePlatformAdapter):
         self._notes_task: asyncio.Task | None = None
         self._language_task: asyncio.Task | None = None
         self._privacy = privacy.Report()
+        # allow_profile_memory_for_viewers: answer viewers and moderators while the profile's memory is on.
+        self._viewer_memory = _bool_option(privacy.OPT_IN, False, settings, extra)
+        self._barred_log = Cooldowns(BARRED_LOG_PERIOD, clock=lambda: self._clock())
         self._allowed_ids: dict[str, str] = {}  # login -> user id, for TWITCH_ALLOWED_USERS
         self._unknown_logins: set[str] = set()
         self._allowlist_retry = False  # Twitch did not answer the last lookup; the token watch tries again
@@ -414,7 +420,7 @@ class TwitchAdapter(BasePlatformAdapter):
             return False
         self._closing = False
         # Before the session: a !forgetme or !mynotes that arrives with the first chat lines finds the notes file.
-        self._privacy = privacy.check(shared=not self.per_viewer_sessions())
+        self._privacy = privacy.check(shared=not self.per_viewer_sessions(), opted_in=self._viewer_memory)
         await self._open_notes()
         try:
             await self._open_session()
@@ -844,6 +850,9 @@ class TwitchAdapter(BasePlatformAdapter):
             return
         if self._is_sender_authorized(msg.user_id, chat_type="group", chat_id=msg.channel) is False:
             return  # Hermes would refuse it: no turn slot, no cooldown, and no log line naming the viewer
+        if (barred := self._barred(msg.user_id)) is not None:
+            self._log_barred(barred)
+            return  # refused the same way: their turn would carry the owner's memory
         if not self._cooldowns.ready(key, exempt=role.privileged):
             logger.debug("Twitch: %s is cooling down in %s", msg.login, msg.channel)
             return
@@ -878,7 +887,8 @@ class TwitchAdapter(BasePlatformAdapter):
                                is_owner=self._is_owner(msg.user_id), message_id=msg.message_id, room_id=room_id,
                                helix=self.helix, notes=self._notes, chat_tail=self._tail.size, privacy=self._privacy,
                                may_ask=self._is_sender_authorized(msg.user_id, chat_type="group",
-                                                                  chat_id=msg.channel) is True,
+                                                                  chat_id=msg.channel) is True
+                               and self._barred(msg.user_id) is None,
                                commands_on=self._chat_commands)
         if not commands.allowed(spec, cmd):
             return
@@ -922,6 +932,23 @@ class TwitchAdapter(BasePlatformAdapter):
         owner = self.owner_id()
         return bool(owner and user_id == owner)
 
+    def _barred(self, user_id: str | None) -> privacy.MemoryState | None:
+        """The memory state that bars this asker, None when they may ask. Anyone but the owner is barred while the
+        profile's memory is on (memory.memory_enabled, memory.user_profile_enabled or an external memory.provider) or
+        its config cannot be read: their turn would carry the owner's MEMORY.md and USER.md or reach a memory
+        provider. allow_profile_memory_for_viewers lifts it. The settings are read again for every question, so a
+        change to config.yaml counts at once, and the profile is the one that runs the bot."""
+        if self._viewer_memory or self._is_owner(user_id):
+            return None
+        state = privacy.memory_state()
+        return state if state.on else None
+
+    def _log_barred(self, state: privacy.MemoryState) -> None:
+        """Say why chat gets no answers, once every BARRED_LOG_PERIOD seconds and without naming the asker."""
+        if self._barred_log.ready(BARRED_KEY):
+            self._barred_log.start(BARRED_KEY)
+            logger.warning("Twitch: %s", state.refusal())
+
     def toolsets_for_source(self, source: Any) -> list[str] | None:
         """Toolsets per asker: the owner gets platform_toolsets.twitch plus OWNER_TOOLSETS, a moderator (or the
         broadcaster) of the channel MODERATOR_TOOLSETS, everyone else VIEWER_TOOLSETS. Hermes drops the turn's
@@ -940,6 +967,8 @@ class TwitchAdapter(BasePlatformAdapter):
         if not self._hints.ready(key):
             return
         if self._is_sender_authorized(msg.user_id, chat_type="group", chat_id=msg.channel) is not True:
+            return
+        if self._barred(msg.user_id) is not None:
             return
         self._hints.start(key)
         self._spawn(self._post(msg.channel, EMPTY_QUESTION_REPLY.format(name=msg.display_name),
@@ -1074,6 +1103,9 @@ class TwitchAdapter(BasePlatformAdapter):
         key = f"{channel} {event.message_id}"
         turn = self._turns[key] = _Turn(user_id=event.source.user_id or "")
         try:
+            if (barred := self._barred(event.source.user_id)) is not None:
+                self._log_barred(barred)  # it waited in the queue while the profile's memory was switched on
+                return
             await self._hand_off(event)
             # No start within the grace period: dropped, merged into a busy session or answered inline.
             await asyncio.wait_for(turn.started.wait(), self.turn_start_grace)

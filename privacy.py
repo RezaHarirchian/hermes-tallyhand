@@ -1,6 +1,8 @@
 """Settings a plugin cannot switch per viewer; connect warns once per risky one (Hermes 0.22.7 through main).
 memory.memory_enabled and memory.user_profile_enabled (both default true) put MEMORY.md and USER.md in every turn;
-a non-built-in memory.provider gets each turn; only gateway.platforms.twitch.skip_context_files drops context files."""
+a non-built-in memory.provider gets each turn; only gateway.platforms.twitch.skip_context_files drops context files.
+The three memory settings also gate who may ask: while one is on, only the owner is answered unless the owner sets
+``allow_profile_memory_for_viewers`` (memory_state() reads them again for every question)."""
 
 from __future__ import annotations
 
@@ -14,6 +16,12 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 PLATFORM = "twitch"
+# The plugin setting that lets viewers' and moderators' questions run while the profile's memory is on.
+OPT_IN = "allow_profile_memory_for_viewers"
+# The memory settings that carry the owner's memory into other people's turns, and the Hermes command that clears each.
+MEMORY_FIXES = {"memory.memory_enabled": "config set memory.memory_enabled false",
+                "memory.user_profile_enabled": "config set memory.user_profile_enabled false",
+                "memory.provider": "memory off"}
 # Tallyhand's toolsets, and what Hermes falls back to when platform_toolsets.twitch is unset: plugin platforms get
 # "hermes-<platform>" (hermes_cli/tools_config.py _platform_default_toolset, 0.22.7 through main).
 TOOLSETS = ("obs", "twitch")
@@ -69,23 +77,41 @@ def profile_name(home: Path) -> str:
     return home.name if home.parent.name == "profiles" else "default"
 
 
-def risky_settings(config: Mapping, *, external: bool, profile: str = "default", shared: bool = False) -> list[str]:
+def memory_settings_on(config: Mapping, *, external: bool) -> list[str]:
+    """The settings, by their config names, that put the profile's MEMORY.md, USER.md or an external memory provider
+    into every turn, read the way Hermes reads them: memory.memory_enabled and memory.user_profile_enabled are on
+    unless set false, and memory.provider counts when it names a provider other than the built-in store
+    (``external``)."""
+    memory = _section(config, "memory")
+    return [name for name, on in (("memory.memory_enabled", truthy(memory.get("memory_enabled"), True)),
+                                  ("memory.user_profile_enabled", truthy(memory.get("user_profile_enabled"), True)),
+                                  ("memory.provider", external)) if on]
+
+
+def risky_settings(config: Mapping, *, external: bool, profile: str = "default", shared: bool = False,
+                   opted_in: bool = False) -> list[str]:
     """One warning per setting that puts the owner's data into viewers' turns or sends their turns elsewhere.
     ``external`` says whether memory.provider names a provider other than the built-in memory, ``shared`` whether
-    the gateway keeps one session per channel."""
+    the gateway keeps one session per channel, ``opted_in`` whether allow_profile_memory_for_viewers is on (the
+    memory warnings then say viewers are answered anyway, else that their questions are refused)."""
     hermes = command(profile)
     memory = _section(config, "memory")
+    on = memory_settings_on(config, external=external)
+    effect = (f"; {OPT_IN} is on, so viewers' answers use it" if opted_in
+              else "; until then Tallyhand refuses questions from anyone but you")
     warnings = []
-    if truthy(memory.get("memory_enabled"), True):
+    if "memory.memory_enabled" in on:
         warnings.append(f"Hermes memory is on, so every Twitch turn, viewers' included, carries MEMORY.md; turn it "
-                        f"off with memory.memory_enabled: false ({hermes} config set memory.memory_enabled false)")
-    if truthy(memory.get("user_profile_enabled"), True):
+                        f"off with memory.memory_enabled: false ({hermes} config set memory.memory_enabled false)"
+                        + effect)
+    if "memory.user_profile_enabled" in on:
         warnings.append(f"the Hermes user profile is on, so every Twitch turn carries USER.md; turn it off with "
-                        f"memory.user_profile_enabled: false ({hermes} config set memory.user_profile_enabled false)")
-    if external:
+                        f"memory.user_profile_enabled: false ({hermes} config set memory.user_profile_enabled false)"
+                        + effect)
+    if "memory.provider" in on:
         warnings.append(f"memory.provider is {str(memory.get('provider')).strip()!r}, so viewers' turns are sent to "
                         f"that memory provider and its recall goes into their answers; set memory.provider to '' "
-                        f"({hermes} memory off)")
+                        f"({hermes} memory off)" + effect)
     if shared:
         warnings.append("group_sessions_per_user is false in the gateway's config, so all viewers in a channel share "
                         "one Hermes session and can read each other's questions back, viewer notes stay out of "
@@ -132,19 +158,65 @@ class Report:
     shared_sessions: bool = False  # one Hermes session per channel instead of one per viewer
 
 
-def check(*, shared: bool = False) -> Report:
-    """Log the warnings for the running profile and return them; ``shared`` is the gateway's session layout, from
-    the adapter. Never raises: a config that cannot be read is logged as such."""
-    try:
-        from agent.memory_provider import is_core_memory_provider
-        from hermes_cli.config import load_config_readonly
-        from hermes_constants import get_hermes_home
+READ_ERRORS = (ImportError, OSError, ValueError, TypeError, AttributeError)
 
-        config = load_config_readonly() or {}
-        external = not is_core_memory_provider(_section(config, "memory").get("provider"))
-        profile = profile_name(get_hermes_home())
-        warnings = risky_settings(config, external=external, profile=profile, shared=shared)
-    except (ImportError, OSError, ValueError, TypeError, AttributeError) as exc:
+
+def read_config() -> tuple[Mapping, bool, str]:
+    """The running profile's config as Hermes loads it, whether memory.provider names an external provider, and the
+    profile's name. Hermes caches the load on the file's signature, so reading it again for every question costs
+    next to nothing, and a change to config.yaml shows at the next question. Raises one of READ_ERRORS."""
+    from agent.memory_provider import is_core_memory_provider
+    from hermes_cli.config import load_config_readonly
+    from hermes_constants import get_hermes_home
+
+    config = load_config_readonly() or {}
+    external = not is_core_memory_provider(_section(config, "memory").get("provider"))
+    return config, external, profile_name(get_hermes_home())
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryState:
+    """Which memory settings of the running profile are on right now. ``unreadable`` means the config could not be
+    read: nothing is known about the memory settings, and callers treat that as memory on."""
+
+    settings: tuple[str, ...] = ()
+    profile: str = "default"
+    unreadable: str = ""  # the error's type name when the config could not be read
+
+    @property
+    def on(self) -> bool:
+        return bool(self.unreadable or self.settings)
+
+    def refusal(self) -> str:
+        """One log line for a refused question; it names no viewer."""
+        lift = f"or set {OPT_IN}: true to answer them anyway"
+        if self.unreadable:
+            return (f"refusing questions from anyone but the owner: Hermes' config could not be read "
+                    f"({self.unreadable}), so its memory is taken as on; fix the config, {lift}")
+        hermes = command(self.profile)
+        fixes = ", ".join(f"{hermes} {MEMORY_FIXES[name]}" for name in self.settings)
+        return (f"refusing questions from anyone but the owner: Hermes memory is on in this profile "
+                f"({', '.join(self.settings)}), so their turns would use it; turn it off with {fixes}, {lift}")
+
+
+def memory_state() -> MemoryState:
+    """The profile's memory settings from the config Hermes reads right now. Never raises; a config that cannot be
+    read comes back ``unreadable`` (with the error's type), so a caller that gates on ``on`` fails closed."""
+    try:
+        config, external, profile = read_config()
+        return MemoryState(tuple(memory_settings_on(config, external=external)), profile)
+    except Exception as exc:  # a gate must not fail open on a surprise inside Hermes' loader
+        return MemoryState(unreadable=type(exc).__name__)
+
+
+def check(*, shared: bool = False, opted_in: bool = False) -> Report:
+    """Log the warnings for the running profile and return them; ``shared`` is the gateway's session layout and
+    ``opted_in`` the allow_profile_memory_for_viewers setting, both from the adapter. Never raises: a config that
+    cannot be read is logged as such."""
+    try:
+        config, external, profile = read_config()
+        warnings = risky_settings(config, external=external, profile=profile, shared=shared, opted_in=opted_in)
+    except READ_ERRORS as exc:
         logger.warning("Twitch: could not check Hermes' memory and context settings (%s)", type(exc).__name__)
         return Report(shared_sessions=shared)
     for warning in warnings:

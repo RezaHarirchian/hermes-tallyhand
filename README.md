@@ -42,7 +42,7 @@ The ban line is Hermes' approval question around Tallyhand's one-line summary, `
 
 ## Quick start
 
-You need Hermes Agent 0.22.7 or later. For a channel with viewers, use [Recommended setup](#recommended-setup) in place of steps 3 and 4.
+You need Hermes Agent 0.22.7 or later. For a channel with viewers, use [Recommended setup](#recommended-setup) in place of steps 3 and 4: with Hermes' default settings the bot answers only you, because your memory is on.
 
 1. Create a Twitch account for the bot; make it a moderator in your channel if it should moderate.
 2. Register your own application in the Twitch developer console and, logged in as the bot, mint a user access token with it ([Twitch's guide to tokens](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/)). It needs `chat:read` and `chat:edit` plus the scopes of the features you want ([Token scopes](docs/twitch-tools.md#token-scopes)). Tallyhand never refreshes it.
@@ -72,7 +72,7 @@ The owner is the broadcaster of the first channel in `TWITCH_CHANNEL`. A moderat
 | `!uptime`, `!bot`, `!commands`, `!privacy`, `!mynotes`, `!forgetme` | yes | yes | yes |
 | Wait between questions | none in your channel | none | 20 seconds |
 
-Nobody can ask, you included, until `TWITCH_ALLOWED_USERS` names them or `TWITCH_ALLOW_ALL_USERS` is true. Hermes' gateway-wide `GATEWAY_ALLOWED_USERS` counts too, and with no allowlist set anywhere, `GATEWAY_ALLOW_ALL_USERS=true` lets everyone ask. Chat commands ignore these lists, except `!remember`, which only takes notes from viewers who may ask. Roles, tools and approvals: [docs/twitch-tools.md](docs/twitch-tools.md).
+Nobody can ask, you included, until `TWITCH_ALLOWED_USERS` names them or `TWITCH_ALLOW_ALL_USERS` is true. Hermes' gateway-wide `GATEWAY_ALLOWED_USERS` counts too, and with no allowlist set anywhere, `GATEWAY_ALLOW_ALL_USERS=true` lets everyone ask. Chat commands ignore these lists, except `!remember`, which only takes notes from viewers who may ask. While the memory, the user profile or an external memory provider is on in the profile that runs the bot, only you are answered; see [Recommended setup](#recommended-setup). Roles, tools and approvals: [docs/twitch-tools.md](docs/twitch-tools.md).
 
 ## Safety and privacy
 
@@ -107,6 +107,7 @@ Environment variables go in the profile's `.env` (the wizard writes them, or use
 | `auto_clip_announce` | `true` | Post automatic clip links |
 | `caption_answers` | `false` | Show your channel's answers as OBS captions |
 | `reply_language` | `channel` | Model replies use the stream language (or `viewer` / an ISO code) |
+| `allow_profile_memory_for_viewers` | `false` | Answer viewers and moderators while Hermes memory is on |
 | `tools_from_other_platforms` | `false` | Twitch and OBS tools for other platforms and cron jobs |
 
 Every variable, setting and related Hermes key is in [docs/configuration.md](docs/configuration.md); OBS setup is in [docs/obs.md](docs/obs.md).
@@ -119,7 +120,7 @@ Twitch's stream language list has no Persian. A Persian channel sets the Twitch 
 
 ## Recommended setup
 
-Hermes gives every Twitch turn, a viewer's included, your `MEMORY.md`, `USER.md`, `SOUL.md`, your project's context files and an external memory provider's recall, and that provider also receives viewers' questions. Tallyhand cannot change this per viewer, so give the bot a Hermes profile of its own:
+Hermes gives every Twitch turn, a viewer's included, your `MEMORY.md`, `USER.md`, `SOUL.md`, your project's context files and an external memory provider's recall, and that provider also receives viewers' questions. Tallyhand cannot change this per viewer. What it does instead: while the memory, the user profile or an external memory provider is on in the profile that runs the bot, it answers only you and logs why. Give the bot a Hermes profile of its own with them off, and everyone is answered:
 
 ```bash
 hermes profile create tallyhand --no-skills
@@ -138,8 +139,9 @@ Accept the wizard's recommended Twitch settings. They skip context files in Twit
 - Keep `group_sessions_per_user` on in that profile, which runs the gateway, so each viewer gets a session of their own.
 - After any of these changes, run `hermes -p tallyhand sessions refresh-prompts`: existing sessions keep their old system prompt.
 - Keep `SOUL.md` and your personality settings free of anything private: they reach every turn.
+- To answer viewers while your memory is on, set `allow_profile_memory_for_viewers: true` under `plugins.entries.tallyhand.settings`. Their turns then carry your `MEMORY.md` and `USER.md`, and your memory provider receives their questions, so use it only when nothing in your memory is private.
 
-At connect, Tallyhand logs a warning naming the setting to change while memory, the user profile, an external memory provider, context files, a shared channel session, a replaced Twitch hint or the Twitch and OBS tools in viewers' turns is still on. Details are in [docs/configuration.md](docs/configuration.md#hermes-settings-that-matter-for-twitch).
+Tallyhand reads those three settings again for every question, so a change counts at the next one, and a `config.yaml` Hermes cannot read counts as memory on. At connect, Tallyhand logs a warning naming the setting to change while memory, the user profile, an external memory provider, context files, a shared channel session, a replaced Twitch hint or the Twitch and OBS tools in viewers' turns is still on. Details are in [docs/configuration.md](docs/configuration.md#hermes-settings-that-matter-for-twitch).
 
 ## Known limits
 

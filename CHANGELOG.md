@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-11-10)
+
+- Viewers and moderators are not answered while the Hermes memory of the profile that runs the bot is on. While `memory.memory_enabled`, `memory.user_profile_enabled` or an external `memory.provider` is on, questions from anyone but the owner are refused, because their turns would carry the owner's `MEMORY.md` and `USER.md` and a memory provider would receive their questions. Before, Tallyhand only logged a warning at connect.
+- The settings are read again for every question, so a change to `config.yaml` counts at the next one, and a question that waited in the queue is checked again when it runs. A config Hermes cannot read counts as memory on.
+- The new setting `allow_profile_memory_for_viewers` (off by default) answers viewers and moderators anyway. The warnings at connect say which of the two applies. `!remember` and the usage hint for a bare trigger follow the same rule, and the owner is never held back.
+- The README's Recommended setup, a profile of its own with memory off, answers everyone and needs no setting.
+
 ## 0.1.0 (2026-11-09)
 
 First release. Needs Hermes Agent 0.22.7 or later.

@@ -55,7 +55,7 @@ Tallyhand itself contacts only Twitch, and OBS if you set it up:
 
 OBS runs on the same computer unless you allow another one with `TALLYHAND_OBS_ALLOW_REMOTE`. Tallyhand sends OBS nothing about viewers on its own. With `caption_answers` on, the bot's answers in your channel show on stream, and they often name the viewer.
 
-Hermes sends each turn to the model provider you configured: the question, the asker's display name, their notes, any recent chat lines that go along, and the system prompt Hermes builds. That prompt includes your `MEMORY.md` and `USER.md` unless you turn them off, and your `SOUL.md` always, which is why the README recommends a profile of its own for the bot. Tallyhand has no telemetry and contacts nothing else.
+Hermes sends each turn to the model provider you configured: the question, the asker's display name, their notes, any recent chat lines that go along, and the system prompt Hermes builds. That prompt includes your `MEMORY.md` and `USER.md` unless you turn them off, and your `SOUL.md` always, which is why the README recommends a profile of its own for the bot. While the memory, the user profile or an external memory provider is on, Tallyhand answers only you, so none of that reaches a viewer's turn, unless you set `allow_profile_memory_for_viewers`. Tallyhand has no telemetry and contacts nothing else.
 
 ## Viewers' controls
 

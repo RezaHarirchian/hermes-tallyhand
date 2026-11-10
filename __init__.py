@@ -7,7 +7,8 @@ from typing import Any
 __all__ = ["register"]
 
 SETTINGS = ("user_cooldown", "max_reply_lines", "chat_tail", "chat_commands", "viewer_notes", "viewer_notes_days",
-            "event_messages", "min_raid_size", "auto_clip", "auto_clip_announce", "caption_answers", "reply_language")
+            "event_messages", "min_raid_size", "auto_clip", "auto_clip_announce", "caption_answers", "reply_language",
+            "allow_profile_memory_for_viewers")
 DOCS_URL = "https://github.com/RezaHarirchian/hermes-tallyhand#readme"
 
 

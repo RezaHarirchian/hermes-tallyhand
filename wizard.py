@@ -165,8 +165,9 @@ def run(ui: Prompts, store: Store, endpoints: Endpoints | None = None) -> bool:
                     "alone: with it set, your own Twitch turns would lose the Twitch and OBS tools too. Viewers' turns "
                     "still list those tools, though Tallyhand refuses every call; give platform_toolsets.twitch a list "
                     "of your own and run the setup again to keep them out.")
-    ui.info("Memory is set for the whole profile, so the wizard leaves it alone. For a profile that runs only "
-            "the bot, turn it off as Recommended setup in the README shows.")
+    ui.info("Memory is set for the whole profile, so the wizard leaves it alone. While it is on, Tallyhand answers "
+            f"only you, unless you set {privacy.OPT_IN}. For a profile that runs only the bot, turn it off as "
+            "Recommended setup in the README shows.")
     ui.info("Restart the gateway to connect: hermes gateway restart")
     return True
 

@@ -13,6 +13,7 @@ from gateway.run import GatewayRunner
 from gateway.session_authority import initialize_session_authority
 from gateway.session_results import execution_result
 
+import bot_profile
 from harness import until
 
 WAIT = 10.0
@@ -21,9 +22,9 @@ WAIT = 10.0
 @pytest.fixture
 async def wired(harness, registered_twitch, monkeypatch, tmp_path):
     """Start a connected adapter behind a real GatewayRunner and session authority (adapter keywords pass through);
-    returns the adapter. Fresh Hermes home, no home channel, everyone may ask."""
+    returns the adapter. The bot's own profile (memory off), no home channel, everyone may ask."""
     registered_twitch()
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("HERMES_HOME", str(bot_profile.write(tmp_path / "home")))
     monkeypatch.setenv("TWITCH_ALLOW_ALL_USERS", "true")
     started = []
 
@@ -112,6 +113,17 @@ async def test_owner_question_passes_native_admission_with_gateway_control(gatew
     (owner,) = turns
     assert (owner.source.user_id, owner.allow_gateway_control, owner.metadata) == (room, True, {})
     assert adapter.toolsets_for_source(owner.source) is None  # Hermes' default, plugin toolsets included
+
+
+async def test_memory_on_keeps_viewers_from_hermes_but_not_the_owner(gateway, twitch, monkeypatch, tmp_path):
+    adapter, turns = gateway
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "memory-on"))  # no config.yaml: Hermes' defaults, memory on
+    await twitch.privmsg("#chan", "!hermes what do you know about the streamer?", login="alice", user_id="42")
+    room = twitch.room_id("#chan")
+    asked = await twitch.privmsg("#chan", "!hermes hello", login="chan", user_id=room, badges="broadcaster/1")
+    await twitch.wait_for(lambda: twitch.privmsgs(), timeout=WAIT)
+    assert twitch.privmsgs() == [f"@reply-parent-msg-id={asked} PRIVMSG #chan :answer 1"]
+    assert [turn.source.user_id for turn in turns] == [room]  # Hermes never saw the viewer's question
 
 
 async def test_commands_answer_beside_admitted_questions(gateway, twitch):

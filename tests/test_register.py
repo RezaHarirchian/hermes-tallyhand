@@ -21,7 +21,7 @@ from tallyhand.hint import PLATFORM_HINT
 
 ROOT = Path(tallyhand.__file__).resolve().parent
 SECRET = "zq9s3cr3tt0ken7x"
-IDENTITY = {"name": "tallyhand", "kind": "platform", "label": "Twitch", "version": "0.1.0", "manifest_version": 2,
+IDENTITY = {"name": "tallyhand", "kind": "platform", "label": "Twitch", "version": "0.1.1", "manifest_version": 2,
             "license": "MIT"}
 OPTIONAL_ENV = ["TWITCH_ALLOWED_USERS", "TWITCH_ALLOW_ALL_USERS", "TWITCH_HOME_CHANNEL", "TWITCH_HOME_CHANNEL_NAME",
                 "TALLYHAND_TRIGGERS",
@@ -82,11 +82,12 @@ def tuning(call: dict) -> dict:
             "viewer_notes_days": built._notes_days, "event_messages": built._event_mode,
             "min_raid_size": built._min_raid, "auto_clip": built._auto_clip,
             "auto_clip_announce": built._auto_clip_announce, "caption_answers": built._caption_answers,
-            "reply_language": built._reply_language}
+            "reply_language": built._reply_language, "allow_profile_memory_for_viewers": built._viewer_memory}
 
 
 DEFAULTS = {"viewer_notes": True, "viewer_notes_days": 90, "event_messages": "off", "min_raid_size": 1,
-            "auto_clip": False, "auto_clip_announce": True, "caption_answers": False, "reply_language": "channel"}
+            "auto_clip": False, "auto_clip_announce": True, "caption_answers": False, "reply_language": "channel",
+            "allow_profile_memory_for_viewers": False}
 
 
 @pytest.fixture(scope="module")
@@ -159,7 +160,8 @@ def test_adapter_factory_reads_settings_when_it_builds():
     ctx, call = registered(RecordingContext({"user_cooldown": 45}))
     changed = {"max_reply_lines": 2, "chat_tail": 5, "chat_commands": False, "tools_from_other_platforms": True,
                "viewer_notes": False, "viewer_notes_days": 30, "event_messages": "thanks", "min_raid_size": 10,
-               "auto_clip": True, "auto_clip_announce": False, "caption_answers": True, "reply_language": "fa"}
+               "auto_clip": True, "auto_clip_announce": False, "caption_answers": True, "reply_language": "fa",
+               "allow_profile_memory_for_viewers": True}
     ctx.settings.update(changed)
     assert tuning(call) == {"user_cooldown": 45, **changed}
 
@@ -284,7 +286,8 @@ def test_manifest_config_schema(manifest):
         "chat_commands": ("bool", True), "tools_from_other_platforms": ("bool", False),
         "viewer_notes": ("bool", True), "viewer_notes_days": ("int", 90), "event_messages": ("string", "off"),
         "min_raid_size": ("int", 1), "auto_clip": ("bool", False), "auto_clip_announce": ("bool", True),
-        "caption_answers": ("bool", False), "reply_language": ("string", "channel")}
+        "caption_answers": ("bool", False), "reply_language": ("string", "channel"),
+        "allow_profile_memory_for_viewers": ("bool", False)}
     assert schema["event_messages"]["choices"] == ["off", "thanks"]
     for spec in schema.values():
         assert isinstance(spec["label"], str) and spec["label"].strip()
@@ -298,7 +301,7 @@ def test_hermes_parses_the_manifest(caplog):
         parsed = plugins_manifest.parse_manifest_file(ROOT / "plugin.yaml", ROOT, "user", "")
     assert parsed is not None
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING] == []
-    assert (parsed.name, parsed.kind, parsed.version, parsed.manifest_version) == ("tallyhand", "platform", "0.1.0", 2)
+    assert (parsed.name, parsed.kind, parsed.version, parsed.manifest_version) == ("tallyhand", "platform", "0.1.1", 2)
     assert (parsed.provides_tools, parsed.provides_hooks) == (ALL_TOOLS, ["pre_tool_call"])
     assert plugins_manifest.requires_hermes_error(parsed) is None
     defaults = {key: spec["default"] for key, spec in parsed.config_schema.items()}

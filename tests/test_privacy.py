@@ -183,3 +183,16 @@ def test_a_replaced_twitch_hint_is_called_out():
                                      external=False)
     assert "platform_hints.twitch.replace" in hint and "platform_hints.twitch.append" in hint
     assert privacy.risky_settings({**SAFE, "platform_hints": {"twitch": {"append": "Be brief."}}}, external=False) == []
+
+
+def test_the_memory_warnings_say_what_happens_to_viewers():
+    refused = "; until then Tallyhand refuses questions from anyone but you"
+    allowed = f"; {privacy.OPT_IN} is on, so viewers' answers use it"
+    memory, user, *_ = privacy.risky_settings({}, external=False)
+    assert memory.endswith(refused) and user.endswith(refused)
+    memory, user, *_ = privacy.risky_settings({}, external=False, opted_in=True)
+    assert memory.endswith(allowed) and user.endswith(allowed)
+    config = {**SAFE, "memory": {**SAFE["memory"], "provider": "honcho"}}
+    assert privacy.risky_settings(config, external=True)[0].endswith(refused)
+    assert privacy.risky_settings(config, external=True, opted_in=True)[0].endswith(allowed)
+    assert privacy.risky_settings(SAFE, external=False, opted_in=True) == []  # nothing on, nothing to say

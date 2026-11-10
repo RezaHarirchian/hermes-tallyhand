@@ -1,7 +1,7 @@
 name: tallyhand
 label: Twitch
 kind: platform
-version: 0.1.0
+version: 0.1.1
 manifest_version: 2
 description: >-
   Twitch chat as a Hermes platform that treats chat as untrusted input: roles are enforced in code before
@@ -145,6 +145,11 @@ config_schema:
     default: "channel"
     label: "Reply language"
     description: "Language for every model reply in chat. channel (default) uses the stream language from Twitch; viewer answers in the language of each question; a two-letter ISO 639-1 code fixes one language. TALLYHAND_REPLY_LANGUAGE wins over this. Command and event replies stay English."
+  allow_profile_memory_for_viewers:
+    type: bool
+    default: false
+    label: "Answer viewers while Hermes memory is on"
+    description: "Off (default): while memory.memory_enabled, memory.user_profile_enabled or an external memory.provider is on in the profile that runs the bot, only the owner's questions are answered, because every other turn would carry your MEMORY.md and USER.md or reach the memory provider. On: viewers and moderators are answered anyway, with your memory in their turns. Safer: give the bot a Hermes profile of its own with those three off (README, Recommended setup)."
 provides_tools:
   - twitch_stream_info
   - twitch_create_clip

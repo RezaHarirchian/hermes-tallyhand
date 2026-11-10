@@ -6,4 +6,4 @@ select = ["E", "F", "W", "I", "B", "UP"]
 
 [lint.isort]
 known-third-party = ["gateway", "hermes_cli", "agent"]
-known-first-party = ["tallyhand", "fake_twitch", "fake_validate", "fake_helix", "fake_obs", "harness"]
+known-first-party = ["tallyhand", "bot_profile", "fake_twitch", "fake_validate", "fake_helix", "fake_obs", "harness"]

@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+import bot_profile
+
 ROOT = Path(__file__).resolve().parent.parent
 HERMES = Path(os.environ.get("HERMES_AGENT_PATH") or ROOT.parent / "hermes-agent").resolve()
 if HERMES.is_dir() and str(HERMES) not in sys.path:
@@ -22,6 +24,7 @@ os.environ["HERMES_HOME"] = str(_SANDBOX / "home")
 os.environ["HERMES_GATEWAY_LOCK_DIR"] = str(_SANDBOX / "locks")
 os.environ["NO_PROXY"] = os.environ["no_proxy"] = ",".join(
     filter(None, ["127.0.0.1", "localhost", os.environ.get("NO_PROXY", "")]))
+bot_profile.write(_SANDBOX / "home")  # memory off, so viewers' questions are answered
 
 
 def _load_package(name: str = "tallyhand"):
